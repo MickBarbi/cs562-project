@@ -9,9 +9,67 @@ def main():
     """
 
     body = """
+    # S = ['cust', 'prod', 'sum_1_quant', 'count_2_quant']
+    # n = 2
+    # V = ['cust', 'prod']
+    # F = ['sum_1_quant', 'count_2_quant']
+    # sigma = ["1.state=NJ", "2.state=NY"]
+    # # G = None
+
+    S = ['cust', 'prod', 'max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+    n = 2
+    V = ['cust', 'prod']
+    F = ['max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+    sigma = ["1.state=NJ", "2.state=NY", "3.state=CT"]
+    # G = None
+
+    # MF-Struct initialization (Dictionary)
+    mf_struct = {}
+    avg_dict = {}
     for row in cur:
-        if row['quant'] > 10:
-            _global.append(row)
+    
+        gb_attr = row[V[0]]
+        for i in range(1, n):
+            gb_attr += '_' + row[V[i]]
+
+        if (gb_attr) in mf_struct:
+            for sig in sigma:
+                sig_split = [sig.split('.')[0]] + sig.split('.')[1].split('=')
+                
+                for f in F:
+                    f_split = f.split('_')
+                    if f_split[1] == sig_split[0] and row[sig_split[1]] == sig_split[2]:
+                        if f_split[0] == 'sum':
+                            mf_struct[gb_attr][f] += row['quant']
+                        if f_split[0] == 'count':
+                            mf_struct[gb_attr][f] += 1
+                        if f_split[0] == 'min':
+                            if mf_struct[gb_attr][f] > row['quant']:
+                                mf_struct[gb_attr][f] = row['quant']
+                        if f_split[0] == 'max':
+                            if mf_struct[gb_attr][f] < row['quant']:
+                                mf_struct[gb_attr][f] = row['quant']
+                        if f_split[0] == 'avg':
+                            avg_dict[gb_attr]['sum'] += row['quant']
+                            avg_dict[gb_attr]['count'] += 1
+                            mf_struct[gb_attr][f] = avg_dict[gb_attr]['sum'] / avg_dict[gb_attr]['count']
+                
+        else:
+        #if group by attribute is not in mf_struct yet, then add it
+            # mf_struct[gb_attr] = {agg:0 for agg in F}
+            mf_struct[gb_attr] = {(agg if (agg[0:3] == 'sum') or (agg[0:3] == 'count') or (agg[0:3] == 'avg') else agg if (agg[0:3] == 'min') else agg):(0 if (agg[0:3] == 'sum') or (agg[0:3] == 'count') or (agg[0:3] == 'avg') else 999999 if (agg[0:3] == 'min') else -1) for agg in F}
+            avg_dict[gb_attr] = {'sum':0, 'count':0}
+                
+    #prepare mf_struct for output
+    for key, value in mf_struct.items():
+        key_split = key.split("_")
+        new_row = []
+        for i in range(n):
+            new_row.append(key_split[i])
+        for key2, value2 in value.items():
+            new_row.append(value2)
+        _global.append(new_row)
+            
     """
 
     # Note: The f allows formatting with variables.
@@ -31,8 +89,9 @@ def query():
     user = os.getenv('USER')
     password = os.getenv('PASSWORD')
     dbname = os.getenv('DBNAME')
+    user = 'postgres'
 
-    conn = psycopg2.connect("dbname="+dbname+" user="+user+" password="+password,
+    conn = psycopg2.connect("dbname="+dbname+" user="+user+" password="+password, port = 5433,
                             cursor_factory=psycopg2.extras.DictCursor)
     cur = conn.cursor()
     cur.execute("SELECT * FROM sales")
@@ -40,8 +99,11 @@ def query():
     _global = []
     {body}
     
+    # return tabulate.tabulate(_global,
+    #                     headers="keys", tablefmt="psql")
+
     return tabulate.tabulate(_global,
-                        headers="keys", tablefmt="psql")
+                        headers=S, tablefmt="psql")
 
 def main():
     print(query())
