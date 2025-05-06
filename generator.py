@@ -8,6 +8,12 @@ def main():
     file (e.g. _generated.py) and then run.
     """
 
+    # body = """
+    # for row in cur:
+    #     if row['quant'] > 10:
+    #         _global.append(row)
+    # """
+
     body = """
     # S = ['cust', 'prod', 'sum_1_quant', 'count_2_quant']
     # n = 2
@@ -16,18 +22,21 @@ def main():
     # sigma = ["1.state=NJ", "2.state=NY"]
     # # G = None
 
-    S = ['cust', 'prod', 'max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+    S = ['cust', 'prod', 'avg_1_quant', 'avg_2_quant', 'avg_3_quant']
+    F = ['avg_1_quant', 'avg_2_quant', 'avg_3_quant']
+    # S = ['cust', 'prod', 'max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
     n = 2
     V = ['cust', 'prod']
-    F = ['max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+    # F = ['max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
     sigma = ["1.state=NJ", "2.state=NY", "3.state=CT"]
     # G = None
+    G = 'avg_1_quant > avg_2_quant and avg_3_quant > avg_2_quant and avg_1_quant > avg_3_quant'
+    # G = 'avg_1_quant > avg_2_quant'
 
-    # MF-Struct initialization (Dictionary)
+    #MF-Struct initialization (Dictionary)
     mf_struct = {}
     avg_dict = {}
     for row in cur:
-    
         gb_attr = row[V[0]]
         for i in range(1, n):
             gb_attr += '_' + row[V[i]]
@@ -55,11 +64,60 @@ def main():
                             mf_struct[gb_attr][f] = avg_dict[gb_attr]['sum'] / avg_dict[gb_attr]['count']
                 
         else:
-        #if group by attribute is not in mf_struct yet, then add it
+        #if group by attribute is not in mf_struct, add it
             # mf_struct[gb_attr] = {agg:0 for agg in F}
             mf_struct[gb_attr] = {(agg if (agg[0:3] == 'sum') or (agg[0:3] == 'count') or (agg[0:3] == 'avg') else agg if (agg[0:3] == 'min') else agg):(0 if (agg[0:3] == 'sum') or (agg[0:3] == 'count') or (agg[0:3] == 'avg') else 999999 if (agg[0:3] == 'min') else -1) for agg in F}
             avg_dict[gb_attr] = {'sum':0, 'count':0}
-                
+
+            
+    
+    #used for having clause
+    def check(g1, operator, g2, row):
+        if operator == '<': return row[g1] < row[g2]
+        if operator == '>': return row[g1] > row[g2]
+        if operator == '<=': return row[g1] <= row[g2]
+        if operator == '>=': return row[g1] >= row[g2]
+        if operator == '=': return row[g1] == row[g2]
+        if operator == '!=': return row[g1] != row[g2]
+    
+    #having clause handling
+    if G is not None:        
+        g_split = G.split(' ')
+    else: 
+        g_split = ''
+
+    tmp_mf = {}
+    if len(g_split) != 0:
+        g1 = g_split[0]
+        comp = g_split[1]
+        g2 = g_split[2]
+
+        for key, value in mf_struct.items():
+            if check(g1, comp, g2, value):
+                tmp_mf[key] = value
+
+        for i in range(3, len(g_split), 4):
+            
+            and_or = g_split[i]
+            g1 = g_split[i+1]
+            comp = g_split[i+2]
+            g2 = g_split[i+3]
+
+            if and_or == 'or':
+                for key, value in mf_struct.items():
+                    if check(g1, comp, g2, value):
+                        tmp_mf[key] = value
+            if and_or == 'and':
+                for i in list(tmp_mf):
+                    if check(g1, comp, g2, tmp_mf[i]) and i in tmp_mf:
+                        continue
+                    else:
+                        tmp_mf.pop(i)
+                    
+        mf_struct = tmp_mf
+        
+    
+                        
     #prepare mf_struct for output
     for key, value in mf_struct.items():
         key_split = key.split("_")
@@ -69,7 +127,7 @@ def main():
         for key2, value2 in value.items():
             new_row.append(value2)
         _global.append(new_row)
-            
+
     """
 
     # Note: The f allows formatting with variables.
