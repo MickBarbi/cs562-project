@@ -1,0 +1,6 @@
+cust,state,sum_1_quant,count_1_quant,max_2_quant
+2
+cust,state
+sum_1_quant,count_1_quant,max_2_quant
+1.month=2,2.month=4
+None

@@ -1,0 +1,6 @@
+prod,cust,year,avg_1_quant,sum_2_quant
+3
+prod,cust,year
+avg_1_quant,sum_2_quant
+1.month=4,2.month=6
+None

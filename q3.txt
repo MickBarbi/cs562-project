@@ -1,0 +1,6 @@
+cust,year,avg_1_quant,max_2_quant,min_1_quant
+2
+cust,year
+avg_1_quant,max_2_quant,min_1_quant
+1.state=NJ,2.day=18
+None

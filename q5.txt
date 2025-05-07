@@ -1,0 +1,6 @@
+cust,prod,sum_1_quant,count_1_quant,min_2_quant,max_2_quant,avg_3_quant
+2
+cust,prod
+sum_1_quant,count_1_quant,min_2_quant,max_2_quant,avg_3_quant
+1.state=NJ,2.year=2016,3.state=NY
+count_1_quant > min_2_quant and max_2_quant > avg_3_quant

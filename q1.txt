@@ -1,0 +1,6 @@
+cust,prod,avg_1_quant,avg_2_quant,avg_3_quant
+2
+cust,prod
+avg_1_quant,avg_2_quant,avg_3_quant
+1.state=NJ,2.state=NY,3.state=CT
+avg_1_quant > avg_2_quant and avg_3_quant > avg_2_quant and avg_1_quant > avg_3_quant
