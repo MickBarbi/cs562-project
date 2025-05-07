@@ -8,40 +8,7 @@ def main():
     file (e.g. _generated.py) and then run.
     """
 
-    # body = """
-    # for row in cur:
-    #     if row['quant'] > 10:
-    #         _global.append(row)
-    # """
-
     body = """
-    # S = ['cust', 'prod', 'sum_1_quant', 'count_2_quant']
-    # n = 2
-    # V = ['cust', 'prod']
-    # F = ['sum_1_quant', 'count_2_quant']
-    # sigma = ["1.state=NJ", "2.state=NY"]
-    # # G = None
-
-    # S = ['cust', 'prod', 'max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
-    # F = ['max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
-
-    S = ['cust', 'prod', 'avg_1_quant', 'avg_2_quant', 'avg_3_quant']
-    n = 2
-    V = ['cust', 'prod']
-    F = ['avg_1_quant', 'avg_2_quant', 'avg_3_quant']
-    sigma = ["1.state=NJ", "2.state=NY", "3.state=CT"]
-    # G = None
-    G = 'avg_1_quant > avg_2_quant and avg_3_quant > avg_2_quant and avg_1_quant > avg_3_quant'
-    # G = 'avg_1_quant > avg_2_quant'
-
-    #Example to copy and paste for user input
-    # S = cust,prod,avg_1_quant,avg_2_quant
-    # n = 2
-    # V = cust,prod
-    # F = avg_1_quant,avg_2_quant
-    # sigma = 1.state=NJ,2.state=NY
-    # G = avg_1_quant > avg_2_quant
-
     input_type = 'txt_file'
 
     if input_type == 'User':
@@ -63,15 +30,11 @@ def main():
     
     else: #default query if don't want to do user input or read from file
         S = ['cust', 'prod', 'avg_1_quant', 'avg_2_quant', 'avg_3_quant']
-        # S = ['cust', 'prod', 'avg_1_quant']
         n = 2
         V = ['cust', 'prod']
         F = ['avg_1_quant', 'avg_2_quant', 'avg_3_quant']
-        # F = ['avg_1_quant']
-        sigma = ["1.state=NJ", "2.state=NY", "3.state=CT"]
-        # sigma = ["1.state=NJ"]
+        sigma = ['1.state=NJ', '2.state=NY', '3.state=CT']
         G = 'avg_1_quant > avg_2_quant and avg_3_quant > avg_2_quant and avg_1_quant > avg_3_quant'
-        # G = None
         
 
     #MF-Struct initialization (Dictionary)
@@ -101,23 +64,18 @@ def main():
                                 mf_struct[gb_attr][f] += 1
                             else:
                                 mf_struct[gb_attr][f] = 1
-                            # mf_struct[gb_attr][f] += 1
                         if f_split[0] == 'min':
                             if f in mf_struct[gb_attr]:
                                 if mf_struct[gb_attr][f] > row['quant']:
                                     mf_struct[gb_attr][f] = row['quant']
                             else:
                                 mf_struct[gb_attr][f] = row['quant']
-                            # if mf_struct[gb_attr][f] > row['quant']:
-                            #     mf_struct[gb_attr][f] = row['quant']
                         if f_split[0] == 'max':
                             if f in mf_struct[gb_attr]:
                                 if mf_struct[gb_attr][f] < row['quant']:
                                     mf_struct[gb_attr][f] = row['quant']
                             else:
                                 mf_struct[gb_attr][f] = row['quant']
-                            # if mf_struct[gb_attr][f] < row['quant']:
-                            #     mf_struct[gb_attr][f] = row['quant']
                         if f_split[0] == 'avg':
 
                             if gb_attr in avg_dict:
@@ -132,16 +90,15 @@ def main():
                             mf_struct[gb_attr][f] = avg_dict[gb_attr][f]['sum'] / avg_dict[gb_attr][f]['count']
                 
                     else:
-                    #if group by attribute is not in mf_struct, add it
-                        # mf_struct[gb_attr] = {(agg if (agg[0:3] == 'sum') or (agg[0:3] == 'avg') or (agg[0:3] == 'min') or (agg[0:3] == 'max') else agg):(row['quant'] if (agg[0:3] == 'sum') or (agg[0:3] == 'avg') or (agg[0:3] == 'min') or (agg[0:3] == 'max') else 1) for agg in F}
                         mf_struct[gb_attr] = {(f if (f_split[0] == 'sum') or (f_split[0] == 'avg') or (f_split[0] == 'min') or (f_split[0] == 'max') else f):(row['quant'] if (f_split[0] == 'sum') or (f_split[0] == 'avg') or (f_split[0] == 'min') or (f_split[0] == 'max') else 1)}
                         if f_split[0] == 'avg':
                             avg_dict[gb_attr] = {f: {'sum':row['quant'], 'count': 1}}
 
+    #removes rows that do not have values for at least 1 of the aggregates
     new_data = {k: v for k, v in mf_struct.items() if len(v) == len(F)}
     mf_struct = new_data
     
-    #used for having clause
+    #check function used for having clause
     def check(g1, operator, g2, row):
         if operator == '<': return row[g1] < row[g2]
         if operator == '>': return row[g1] > row[g2]
@@ -164,12 +121,13 @@ def main():
         comp = g_split[1]
         g2 = g_split[2]
 
+        #loop through mf_struct for first comparison of HAVING clause
         for key, value in mf_struct.items():
             if check(g1, comp, g2, value):
                 tmp_mf[key] = value
 
+        #if there are multiple comparisons, loop through mf_struct again
         for i in range(3, len(g_split), 4):
-            
             and_or = g_split[i]
             g1 = g_split[i+1]
             comp = g_split[i+2]
@@ -188,11 +146,12 @@ def main():
                     
         mf_struct = tmp_mf
         
-    mf_struct = dict(sorted(mf_struct.items()))
 
+    #prepare mf_struct for output
+    #sort mf_struct so it can be compared to standard SQL output
+    mf_struct = dict(sorted(mf_struct.items()))
     outer_keys = list(mf_struct.keys())
     inner_keys = F
-
     sort_dict = {}
     for outer in outer_keys:
         if outer in mf_struct:
@@ -201,8 +160,7 @@ def main():
             sort_dict[outer] = new_inner             
     mf_struct = sort_dict
 
-
-    #prepare mf_struct for output
+    #final preparation for output, split group by attribute key and append aggregate functions
     for key, value in mf_struct.items():
         key_split = key.split("_")
         new_row = []
