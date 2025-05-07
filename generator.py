@@ -22,17 +22,57 @@ def main():
     # sigma = ["1.state=NJ", "2.state=NY"]
     # # G = None
 
-    S = ['cust', 'prod', 'avg_1_quant', 'avg_2_quant', 'avg_3_quant']
-    F = ['avg_1_quant', 'avg_2_quant', 'avg_3_quant']
     # S = ['cust', 'prod', 'max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+    # F = ['max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+
+    S = ['cust', 'prod', 'avg_1_quant', 'avg_2_quant', 'avg_3_quant']
     n = 2
     V = ['cust', 'prod']
-    # F = ['max_1_quant', 'sum_1_quant', 'count_2_quant', 'avg_3_quant']
+    F = ['avg_1_quant', 'avg_2_quant', 'avg_3_quant']
     sigma = ["1.state=NJ", "2.state=NY", "3.state=CT"]
     # G = None
     G = 'avg_1_quant > avg_2_quant and avg_3_quant > avg_2_quant and avg_1_quant > avg_3_quant'
     # G = 'avg_1_quant > avg_2_quant'
 
+    #Example to copy and paste for user input
+    # S = cust,prod,avg_1_quant,avg_2_quant
+    # n = 2
+    # V = cust,prod
+    # F = avg_1_quant,avg_2_quant
+    # sigma = 1.state=NJ,2.state=NY
+    # G = avg_1_quant > avg_2_quant
+
+    input_type = 'txt_file'
+
+    if input_type == 'User':
+        S = input('Input S clause in form of: s1,s2,etc: ').split(',')
+        n = int(input('Input n value: '))
+        V = input('Input group by attributes in form of: gb1,gb2,etc: ').split(',')
+        F = input('Input F aggregate functions in form of: avg_1_quant,avg_2_quant,etc: ').split(',')
+        sigma = input('Input sigma grouping conditions in form of: 1.state=NJ,2.st=NY: ').split(',')
+        G = input('Input having clause as single string in form of: avg_1_quant > avg_2_quant or avg_2_quant > avg_3_quant: ')
+
+    elif input_type == 'txt_file':
+        f = open('q1.txt', 'r')
+        S = f.readline().strip().split(',')
+        n = int(f.readline().strip())
+        V = f.readline().strip().split(',')
+        F = f.readline().strip().split(',')
+        sigma = f.readline().strip().split(',')
+        G = f.readline().strip()
+    
+    else: #default query if don't want to do user input or read from file
+        S = ['cust', 'prod', 'avg_1_quant', 'avg_2_quant', 'avg_3_quant']
+        # S = ['cust', 'prod', 'avg_1_quant']
+        n = 2
+        V = ['cust', 'prod']
+        F = ['avg_1_quant', 'avg_2_quant', 'avg_3_quant']
+        # F = ['avg_1_quant']
+        sigma = ["1.state=NJ", "2.state=NY", "3.state=CT"]
+        # sigma = ["1.state=NJ"]
+        G = 'avg_1_quant > avg_2_quant and avg_3_quant > avg_2_quant and avg_1_quant > avg_3_quant'
+        # G = None
+        
     #MF-Struct initialization (Dictionary)
     mf_struct = {}
     avg_dict = {}
@@ -40,14 +80,16 @@ def main():
         gb_attr = row[V[0]]
         for i in range(1, n):
             gb_attr += '_' + row[V[i]]
+        
+        for sig in sigma:
+            sig_split = [sig.split('.')[0]] + sig.split('.')[1].split('=')
 
-        if (gb_attr) in mf_struct:
-            for sig in sigma:
-                sig_split = [sig.split('.')[0]] + sig.split('.')[1].split('=')
+            for f in F:
+                f_split = f.split('_')
+                if f_split[1] == sig_split[0] and row[sig_split[1]] == sig_split[2]:
                 
-                for f in F:
-                    f_split = f.split('_')
-                    if f_split[1] == sig_split[0] and row[sig_split[1]] == sig_split[2]:
+                    if (gb_attr) in mf_struct:
+                    
                         if f_split[0] == 'sum':
                             mf_struct[gb_attr][f] += row['quant']
                         if f_split[0] == 'count':
@@ -59,15 +101,23 @@ def main():
                             if mf_struct[gb_attr][f] < row['quant']:
                                 mf_struct[gb_attr][f] = row['quant']
                         if f_split[0] == 'avg':
-                            avg_dict[gb_attr]['sum'] += row['quant']
-                            avg_dict[gb_attr]['count'] += 1
-                            mf_struct[gb_attr][f] = avg_dict[gb_attr]['sum'] / avg_dict[gb_attr]['count']
+
+                            if gb_attr in avg_dict:
+                                if f in avg_dict[gb_attr]:
+                                    avg_dict[gb_attr][f]['sum'] += row['quant']
+                                    avg_dict[gb_attr][f]['count'] += 1
+                                else:
+                                    avg_dict[gb_attr][f] = {'sum':row['quant'], 'count':1}
+                            else:
+                                avg_dict[gb_attr] = {f: {'sum':row['quant'], 'count':1}}
+                                
+                            mf_struct[gb_attr][f] = avg_dict[gb_attr][f]['sum'] / avg_dict[gb_attr][f]['count']
                 
-        else:
-        #if group by attribute is not in mf_struct, add it
-            # mf_struct[gb_attr] = {agg:0 for agg in F}
-            mf_struct[gb_attr] = {(agg if (agg[0:3] == 'sum') or (agg[0:3] == 'count') or (agg[0:3] == 'avg') else agg if (agg[0:3] == 'min') else agg):(0 if (agg[0:3] == 'sum') or (agg[0:3] == 'count') or (agg[0:3] == 'avg') else 999999 if (agg[0:3] == 'min') else -1) for agg in F}
-            avg_dict[gb_attr] = {'sum':0, 'count':0}
+                    else:
+                    #if group by attribute is not in mf_struct, add it
+                        mf_struct[gb_attr] = {(agg if (agg[0:3] == 'sum') or (agg[0:3] == 'avg') or (agg[0:3] == 'min') or (agg[0:3] == 'max') else agg):(row['quant'] if (agg[0:3] == 'sum') or (agg[0:3] == 'avg') or (agg[0:3] == 'min') or (agg[0:3] == 'max') else 1) for agg in F}
+                        if f_split[0] == 'avg':
+                            avg_dict[gb_attr] = {f: {'sum':row['quant'], 'count': 1}}
 
             
     
@@ -116,7 +166,7 @@ def main():
                     
         mf_struct = tmp_mf
         
-    
+    mf_struct = dict(sorted(mf_struct.items()))
                         
     #prepare mf_struct for output
     for key, value in mf_struct.items():
@@ -129,6 +179,7 @@ def main():
         _global.append(new_row)
 
     """
+
 
     # Note: The f allows formatting with variables.
     #       Also, note the indentation is preserved.
@@ -162,7 +213,7 @@ def query():
 
     return tabulate.tabulate(_global,
                         headers=S, tablefmt="psql")
-
+    
 def main():
     print(query())
     
